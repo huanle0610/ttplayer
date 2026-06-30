@@ -42,6 +42,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           wix build installer\TTPlayerClassic.wxs `
+            -arch x64 `
             -d BuildOutput=build\Release `
             -d ResourceDir=resources `
             -d SkinDir=skins `

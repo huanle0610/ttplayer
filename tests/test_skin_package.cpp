@@ -85,12 +85,19 @@ std::optional<std::filesystem::path> find_sample_skin(const std::filesystem::pat
             continue;
         }
         const auto skin = SkinPackage::open(entry.path());
-        if (skin.has_value()
-            && skin->contains("Skin.xml")
-            && skin->contains("player_skin.bmp")
-            && skin->contains("lyric_skin.bmp")
-            && skin->contains("playlist_skin.bmp")
-            && skin->contains("equalizer_skin.bmp")) {
+        if (!skin || !skin->contains("Skin.xml")) {
+            continue;
+        }
+        const auto xml = skin->read_text("Skin.xml");
+        if (!xml) {
+            continue;
+        }
+        auto definition = parse_skin_definition(*xml);
+        if (definition
+            && skin->contains(definition->player.image)
+            && skin->contains(definition->lyrics.image)
+            && skin->contains(definition->playlist.image)
+            && skin->contains(definition->equalizer.image)) {
             return entry.path();
         }
     }
@@ -606,7 +613,7 @@ int main(int, char** argv) {
     const auto cpp_root = cpp_root_from_test_binary(argv);
     verify_cpp_packaging_files(cpp_root);
     verify_packaged_default_skin_contract(cpp_root);
-    const auto skin_dir = cpp_root / ".." / "TTPlayer5.7" / "skin";
+    const auto skin_dir = packaged_skin_dir(cpp_root);
     verify_default_skin_prefers_tt07(skin_dir);
     const auto package_path = find_sample_skin(skin_dir);
     require(package_path.has_value(), "expected to find a sample .skn with core skin assets");
@@ -626,7 +633,7 @@ int main(int, char** argv) {
     require(definition->player.image == "player_skin.bmp", "expected player image from Skin.xml");
     require(definition->lyrics.image == "lyric_skin.bmp", "expected lyric image from Skin.xml");
     require(definition->playlist.image == "playlist_skin.bmp", "expected playlist image from Skin.xml");
-    require(definition->equalizer.image == "equalizer_skin.bmp", "expected equalizer image from Skin.xml");
+    require(definition->equalizer.image == "eq_skin.bmp", "expected TT-07 equalizer image from Skin.xml");
     require(definition->player.controls.contains("play"), "expected player play control metadata");
     require(definition->player.controls.contains("exit"), "expected player exit control metadata");
     require(definition->player.controls.contains("progress"), "expected progress control metadata");
@@ -646,6 +653,7 @@ int main(int, char** argv) {
 
     return 0;
 }
+
 
 
 

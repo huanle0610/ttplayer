@@ -89,47 +89,12 @@ std::string normalize_name(std::string name) {
     return name;
 }
 
-std::wstring powershell_quote(const std::filesystem::path& path) {
-    std::wstring value = path.wstring();
-    std::wstring quoted = L"'";
-    for (wchar_t ch : value) {
-        if (ch == L'\'') {
-            quoted += L"''";
-        } else {
-            quoted += ch;
-        }
-    }
-    quoted += L"'";
-    return quoted;
-}
-
 std::filesystem::path package_cache_dir(const std::filesystem::path& path) {
     const auto canonical = std::filesystem::absolute(path).wstring();
     const auto hash = std::hash<std::wstring>{}(canonical);
     return std::filesystem::temp_directory_path() / "ttplayer_skin_cache" / std::to_wstring(hash);
 }
 
-bool expand_package_to_cache(const std::filesystem::path& package_path, const std::filesystem::path& cache_dir) {
-    std::error_code error;
-    if (std::filesystem::exists(cache_dir / "Skin.xml", error)) {
-        return true;
-    }
-    std::filesystem::create_directories(cache_dir, error);
-    if (error) {
-        return false;
-    }
-    const std::wstring command = L"powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath "
-        + powershell_quote(package_path) + L" -DestinationPath " + powershell_quote(cache_dir) + L" -Force\"";
-    return _wsystem(command.c_str()) == 0;
-}
-
-std::optional<std::vector<std::uint8_t>> read_from_expanded_cache(const std::filesystem::path& package_path, const std::string& name) {
-    const auto cache_dir = package_cache_dir(package_path);
-    if (!expand_package_to_cache(package_path, cache_dir)) {
-        return std::nullopt;
-    }
-    return read_file(cache_dir / std::filesystem::path(name));
-}
 
 std::optional<std::vector<std::uint8_t>> inflate_deflate(const std::vector<std::uint8_t>& compressed, std::uint32_t output_size) {
     std::vector<std::uint8_t> output(output_size);
@@ -237,7 +202,6 @@ std::optional<std::vector<std::uint8_t>> SkinPackage::read_binary(const std::str
         if (const auto inflated = inflate_deflate(compressed, entry.uncompressed_size)) {
             return inflated;
         }
-        return read_from_expanded_cache(path_, normalize_name(name));
     }
     return std::nullopt;
 }
@@ -248,29 +212,21 @@ std::optional<std::filesystem::path> SkinPackage::materialize(const std::string&
     }
     const auto normalized = normalize_name(name);
     const auto cache_dir = package_cache_dir(path_);
-    if (expand_package_to_cache(path_, cache_dir)) {
-        auto cached = cache_dir / std::filesystem::path(normalized);
-        std::error_code error;
-        if (std::filesystem::exists(cached, error)) {
-            return cached;
-        }
+    auto output = cache_dir / std::filesystem::path(normalized);
+    std::error_code error;
+    if (std::filesystem::exists(output, error)) {
+        return output;
     }
 
     const auto bytes = read_binary(normalized);
     if (!bytes) {
         return std::nullopt;
     }
-    std::error_code error;
-    std::filesystem::create_directories(cache_dir, error);
-    if (error) {
-        return std::nullopt;
-    }
-    auto output = cache_dir / std::filesystem::path(normalized);
     std::filesystem::create_directories(output.parent_path(), error);
     if (error) {
         return std::nullopt;
     }
-    std::ofstream file(output, std::ios::binary);
+    std::ofstream file(output, std::ios::binary | std::ios::trunc);
     if (!file) {
         return std::nullopt;
     }
@@ -287,5 +243,6 @@ std::optional<std::string> SkinPackage::read_text(const std::string& name) const
     }
     return std::string(bytes->begin(), bytes->end());
 }
+
 
 

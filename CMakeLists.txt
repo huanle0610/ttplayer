@@ -46,6 +46,10 @@ target_link_libraries(ttplayer_classic PRIVATE
     winmm
 )
 
+
+if(MSVC)
+    target_link_options(ttplayer_classic PRIVATE /SUBSYSTEM:WINDOWS)
+endif()
 add_custom_command(TARGET ttplayer_classic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/skins
