@@ -93,6 +93,7 @@ struct AudioState {
 };
 
 AudioState g_audio;
+std::wstring g_last_audio_error;
 int g_playlist_scroll = 0;
 int g_playlist_divider_x = 68;
 bool g_playlist_divider_dragging = false;
@@ -861,6 +862,7 @@ int runtime_desktop_lyric_background_alpha();
 int runtime_desktop_lyric_font_height();
 int audio_position_ms();
 void commit_current_playlist_to_library();
+void show_message(HWND hwnd, const wchar_t* text);
 
 
 void save_app_config() {
@@ -956,6 +958,22 @@ std::wstring mci_quote(const std::filesystem::path& path) {
 
 bool mci_send(std::wstring command) {
     return mciSendStringW(command.c_str(), nullptr, 0, nullptr) == 0;
+}
+
+std::wstring mci_error_message(MCIERROR error) {
+    std::array<wchar_t, 256> buffer{};
+    if (mciGetErrorStringW(error, buffer.data(), static_cast<UINT>(buffer.size()))) {
+        return std::wstring(buffer.data());
+    }
+    return L"MCI error " + std::to_wstring(error);
+}
+
+std::optional<std::wstring> mci_send_error(std::wstring command) {
+    const MCIERROR error = mciSendStringW(command.c_str(), nullptr, 0, nullptr);
+    if (error == 0) {
+        return std::nullopt;
+    }
+    return mci_error_message(error);
 }
 
 std::optional<std::wstring> mci_query(std::wstring command) {
@@ -1370,11 +1388,21 @@ void close_audio() {
 
 bool open_current_audio() {
     close_audio();
+    g_last_audio_error.clear();
     const auto* track = current_track();
     if (!track) {
+        g_last_audio_error = L"播放列表里没有可播放的音频。";
         return false;
     }
-    if (!mci_send(L"open " + mci_quote(track->path) + L" type mpegvideo alias ttplayer_audio")) {
+    std::error_code error;
+    if (!std::filesystem::is_regular_file(track->path, error)) {
+        g_last_audio_error = L"找不到音频文件：\n" + track->path.wstring();
+        return false;
+    }
+    if (const auto open_error = mci_send_error(L"open " + mci_quote(track->path) + L" type mpegvideo alias ttplayer_audio")) {
+        g_last_audio_error = L"无法打开音频文件：\n" + track->path.wstring()
+            + L"\n\n" + *open_error
+            + L"\n\n当前版本使用 Windows MCI/WinMM 播放。MP3/WAV/WMA 最可靠；FLAC/APE/OGG/M4A 需要系统编解码器支持。";
         return false;
     }
     g_audio.opened = true;
@@ -1383,16 +1411,27 @@ bool open_current_audio() {
     return true;
 }
 
+void report_audio_error(HWND hwnd) {
+    show_message(hwnd, g_last_audio_error.empty() ? L"无法播放当前音频。" : g_last_audio_error.c_str());
+}
+
 void play_audio(HWND hwnd) {
     if (!g_audio.opened && !open_current_audio()) {
+        report_audio_error(hwnd);
+        invalidate_playback_views(hwnd);
         return;
     }
-    mci_send(L"play ttplayer_audio");
+    if (const auto play_error = mci_send_error(L"play ttplayer_audio")) {
+        g_audio.playing = false;
+        g_last_audio_error = L"无法开始播放：\n" + *play_error;
+        report_audio_error(hwnd);
+        invalidate_playback_views(hwnd);
+        return;
+    }
     g_audio.playing = true;
     invalidate_playback_views(hwnd);
     save_app_config();
 }
-
 void pause_audio(HWND hwnd) {
     if (g_audio.opened) {
         mci_send(L"pause ttplayer_audio");
@@ -1423,6 +1462,7 @@ void play_track_at(HWND hwnd, int index) {
     if (open_current_audio()) {
         play_audio(hwnd);
     } else {
+        report_audio_error(hwnd);
         invalidate_playback_views(hwnd);
         save_app_config();
     }
@@ -5589,20 +5629,4 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
     }
     return static_cast<int>(msg.wParam);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -326,6 +326,19 @@ void verify_playlist_session_xml_round_trips_lists_and_resume_state() {
     require(restored->library.active_name() == L"Favorites", "expected restored active list name");
     require(restored->library.active_tracks().size() == 1, "expected restored active list tracks");
     require(restored->library.active_tracks()[0].path.wstring() == L"D:/Song/four.mp3", "expected restored track path");
+
+    const auto mixed_xml = std::string{
+        "<PlaylistSession ActiveList=\"0\" Position=\"0\" Playing=\"0\">\n"
+        "  <List Name=\"100\" Current=\"0\">\n"
+        "    <Track Path=\"C:/Music/song.mp3\" Title=\"song\" Duration=\"0\" />\n"
+        "    <Track Path=\"C:/Music/lyrics.lrc\" Title=\"lyrics\" Duration=\"0\" />\n"
+        "    <Track Path=\"C:/Music/readme.txt\" Title=\"readme\" Duration=\"0\" />\n"
+        "  </List>\n"
+        "</PlaylistSession>\n"};
+    auto filtered = parse_playlist_session(mixed_xml);
+    require(filtered.has_value(), "expected mixed playlist session xml to parse");
+    require(filtered->library.active_tracks().size() == 1, "expected restored session to ignore non-audio tracks");
+    require(filtered->library.active_tracks()[0].path.wstring() == L"C:/Music/song.mp3", "expected restored session to keep audio track");
     restored->library.switch_to(0);
     require(restored->library.active_track_index() == 1, "expected restored first list current song");
     require(restored->library.active_tracks()[0].title == L"one < two", "expected XML text escaping to round trip");
@@ -653,17 +666,4 @@ int main(int, char** argv) {
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 

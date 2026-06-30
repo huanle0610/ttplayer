@@ -361,7 +361,7 @@ std::optional<PlaylistSessionRestore> parse_playlist_session(std::string_view xm
             }
             const auto track_tag = xml.substr(track_start, track_end - track_start + 2);
             const auto path = wide_from_utf8(tag_attr(track_tag, "Path").value_or(""));
-            if (!path.empty()) {
+            if (!path.empty() && is_supported_audio_file(std::filesystem::path(path))) {
                 PlaylistTrack track{std::filesystem::path(path), wide_from_utf8(tag_attr(track_tag, "Title").value_or("")), int_attr(track_tag, "Duration", 0)};
                 if (track.title.empty()) {
                     track.title = playlist_title_from_path(track.path);
@@ -531,8 +531,4 @@ SkinRect lyric_content_rect(SkinRect skin_rect, int client_width, int client_hei
     rect.bottom = std::max(rect.top + 16, client_height - 4);
     return rect;
 }
-
-
-
-
 
