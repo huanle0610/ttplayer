@@ -1923,8 +1923,21 @@ bool is_icon_asset(const std::filesystem::path& path) {
     return extension == L".ico" || extension == L".ICO";
 }
 
+std::filesystem::path executable_dir() {
+    std::wstring buffer(MAX_PATH, L'\0');
+    DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    while (length == buffer.size() && GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+        buffer.resize(buffer.size() * 2);
+        length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+    }
+    if (length == 0) {
+        return std::filesystem::current_path();
+    }
+    buffer.resize(length);
+    return std::filesystem::path(buffer).parent_path();
+}
 void load_skin_bitmaps() {
-    const auto skin_path = find_preferred_skin_with_core_assets(L"C:/RustroverProjects/TTPlayer5.7/skin", L"TT-07");
+    const auto skin_path = find_default_packaged_skin(packaged_skin_dir(executable_dir()));
     if (!skin_path) {
         return;
     }
@@ -1984,12 +1997,6 @@ void load_skin_bitmaps() {
         if (const auto path = skin->materialize("desklrc_bar.bmp")) {
             g_skin.desktop_lyric_toolbar = load_bitmap_file(*path);
         }
-        const auto classic_desklrc_skin = SkinPackage::open(L"C:/RustroverProjects/TTPlayer5.7/千千静听 Skin/2 简约++/01、TTP Classic (灰白+蓝灰).skn");
-        if (!g_skin.desktop_lyric_toolbar && classic_desklrc_skin) {
-            if (const auto path = classic_desklrc_skin->materialize("desklrc_bar.bmp")) {
-                g_skin.desktop_lyric_toolbar = load_bitmap_file(*path);
-            }
-        }
         for (const std::string asset_name : {
                  "desklrc_prev.bmp",
                  "desklrc_play.bmp",
@@ -2010,13 +2017,6 @@ void load_skin_bitmaps() {
                 if (HBITMAP bitmap = load_bitmap_file(*path)) {
                     g_skin.desktop_lyric_controls.emplace(asset_name, bitmap);
                     continue;
-                }
-            }
-            if (classic_desklrc_skin) {
-                if (const auto path = classic_desklrc_skin->materialize(asset_name)) {
-                    if (HBITMAP bitmap = load_bitmap_file(*path)) {
-                        g_skin.desktop_lyric_controls.emplace(asset_name, bitmap);
-                    }
                 }
             }
         }
@@ -5589,6 +5589,7 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
     }
     return static_cast<int>(msg.wParam);
 }
+
 
 
 

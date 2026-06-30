@@ -22,6 +22,21 @@ bool has_core_assets(const std::filesystem::path& path) {
 
 } // namespace
 
+std::wstring_view default_skin_filename() {
+    return L"3、TT-07_随身听 (蓝+黑).skn";
+}
+
+std::filesystem::path packaged_skin_dir(const std::filesystem::path& app_root) {
+    return app_root / "skins";
+}
+
+std::optional<std::filesystem::path> find_default_packaged_skin(const std::filesystem::path& skin_dir) {
+    const auto skin_path = skin_dir / default_skin_filename();
+    if (!has_core_assets(skin_path)) {
+        return std::nullopt;
+    }
+    return skin_path;
+}
 std::optional<std::filesystem::path> find_preferred_skin_with_core_assets(
     const std::filesystem::path& skin_dir,
     std::wstring_view preferred_name_fragment) {
@@ -47,4 +62,5 @@ std::optional<std::filesystem::path> find_preferred_skin_with_core_assets(
     }
     return fallback;
 }
+
 

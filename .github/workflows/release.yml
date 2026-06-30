@@ -44,6 +44,7 @@ jobs:
           wix build installer\TTPlayerClassic.wxs `
             -d BuildOutput=build\Release `
             -d ResourceDir=resources `
+            -d SkinDir=skins `
             -o dist\TTPlayerClassic.msi
 
       - name: Upload MSI artifact

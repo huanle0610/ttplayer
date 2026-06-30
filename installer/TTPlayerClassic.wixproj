@@ -3,6 +3,6 @@
     <OutputName>TTPlayerClassic</OutputName>
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
-    <DefineConstants>BuildOutput=..\build;ResourceDir=..\resources</DefineConstants>
+    <DefineConstants>BuildOutput=..\build;ResourceDir=..\resources;SkinDir=..\skins</DefineConstants>
   </PropertyGroup>
 </Project>

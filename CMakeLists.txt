@@ -46,6 +46,12 @@ target_link_libraries(ttplayer_classic PRIVATE
     winmm
 )
 
+add_custom_command(TARGET ttplayer_classic POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/skins
+        $<TARGET_FILE_DIR:ttplayer_classic>/skins
+)
+
 add_executable(ttplayer_classic_tests
     tests/test_skin_package.cpp
 )
@@ -64,6 +70,7 @@ else()
     target_compile_options(ttplayer_classic PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(ttplayer_classic_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
+
 
 
 

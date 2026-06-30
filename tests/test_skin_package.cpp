@@ -552,6 +552,16 @@ void verify_window_layout_leaves_distant_panels_detached() {
     require(result.rect.left == playlist.left && result.rect.top == playlist.top, "expected detached panel to stay put");
 }
 
+void verify_packaged_default_skin_contract(const std::filesystem::path& cpp_root) {
+    const auto skin_dir = packaged_skin_dir(cpp_root);
+    const auto default_skin = skin_dir / default_skin_filename();
+    require(default_skin.filename().wstring() == L"3、TT-07_随身听 (蓝+黑).skn", "expected packaged default skin filename to be TT-07 blue-black");
+    require(std::filesystem::exists(default_skin), "expected packaged TT-07 blue-black skin to exist in repository skins directory");
+
+    const auto selected = find_default_packaged_skin(skin_dir);
+    require(selected.has_value(), "expected default packaged skin selector to find TT-07 blue-black skin");
+    require(selected->filename() == default_skin.filename(), "expected default packaged skin selector to choose TT-07 blue-black exactly");
+}
 void verify_cpp_packaging_files(const std::filesystem::path& cpp_root) {
     require(std::filesystem::exists(cpp_root / "resources" / "ttplayer.ico"), "expected original TTPlayer icon resource");
     require(std::filesystem::exists(cpp_root / "resources" / "app.rc"), "expected Win32 resource script");
@@ -595,6 +605,7 @@ int main(int, char** argv) {
 
     const auto cpp_root = cpp_root_from_test_binary(argv);
     verify_cpp_packaging_files(cpp_root);
+    verify_packaged_default_skin_contract(cpp_root);
     const auto skin_dir = cpp_root / ".." / "TTPlayer5.7" / "skin";
     verify_default_skin_prefers_tt07(skin_dir);
     const auto package_path = find_sample_skin(skin_dir);
@@ -635,6 +646,7 @@ int main(int, char** argv) {
 
     return 0;
 }
+
 
 
 

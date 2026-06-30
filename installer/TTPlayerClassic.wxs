@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="TTPlayer Classic" Manufacturer="TTPlayer Classic" Version="0.1.0.0" UpgradeCode="D1D9077C-08C8-4D63-92B7-45C7B0D275A8" Scope="perMachine">
+  <Package Name="TTPlayer Classic" Manufacturer="TTPlayer Classic" Version="0.1.2.0" UpgradeCode="D1D9077C-08C8-4D63-92B7-45C7B0D275A8" Scope="perMachine">
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="AppIcon.ico" SourceFile="$(var.ResourceDir)\ttplayer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
@@ -11,7 +11,9 @@
     </Feature>
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="TTPlayer Classic" />
+      <Directory Id="INSTALLFOLDER" Name="TTPlayer Classic">
+        <Directory Id="SkinFolder" Name="skins" />
+      </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
@@ -25,6 +27,10 @@
         </File>
         <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
       </Component>
+      <Component Id="DefaultSkin" Directory="SkinFolder">
+        <File Id="DefaultSkinFile" Source="$(var.SkinDir)\3、TT-07_随身听 (蓝+黑).skn" KeyPath="yes" />
+      </Component>
     </ComponentGroup>
   </Package>
 </Wix>
+
