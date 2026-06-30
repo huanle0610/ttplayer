@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="TTPlayer Classic" Manufacturer="TTPlayer Classic" Version="0.1.4.0" UpgradeCode="D1D9077C-08C8-4D63-92B7-45C7B0D275A8" Scope="perMachine">
+  <Package Name="TTPlayer Classic" Manufacturer="TTPlayer Classic" Version="0.1.5.0" UpgradeCode="D1D9077C-08C8-4D63-92B7-45C7B0D275A8" Scope="perMachine">
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="AppIcon.ico" SourceFile="$(var.ResourceDir)\ttplayer.ico" />
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />

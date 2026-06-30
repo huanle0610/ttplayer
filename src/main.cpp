@@ -2,11 +2,11 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <commdlg.h>
-#include <mmsystem.h>
 #include <shellapi.h>
 #include <shlobj.h>
 
 #include "playlist_model.h"
+#include "audio_engine.h"
 #include "equalizer_model.h"
 #include "lyric_mode.h"
 #include "desktop_lyric_model.h"
@@ -93,6 +93,7 @@ struct AudioState {
 };
 
 AudioState g_audio;
+AudioEngine g_audio_engine;
 std::wstring g_last_audio_error;
 int g_playlist_scroll = 0;
 int g_playlist_divider_x = 68;
@@ -952,45 +953,6 @@ void show_tray_menu(HWND hwnd) {
     TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, hwnd, nullptr);
     DestroyMenu(menu);
 }
-std::wstring mci_quote(const std::filesystem::path& path) {
-    return L"\"" + path.wstring() + L"\"";
-}
-
-bool mci_send(std::wstring command) {
-    return mciSendStringW(command.c_str(), nullptr, 0, nullptr) == 0;
-}
-
-std::wstring mci_error_message(MCIERROR error) {
-    std::array<wchar_t, 256> buffer{};
-    if (mciGetErrorStringW(error, buffer.data(), static_cast<UINT>(buffer.size()))) {
-        return std::wstring(buffer.data());
-    }
-    return L"MCI error " + std::to_wstring(error);
-}
-
-std::optional<std::wstring> mci_send_error(std::wstring command) {
-    const MCIERROR error = mciSendStringW(command.c_str(), nullptr, 0, nullptr);
-    if (error == 0) {
-        return std::nullopt;
-    }
-    return mci_error_message(error);
-}
-
-std::optional<std::wstring> mci_query(std::wstring command) {
-    std::array<wchar_t, 128> buffer{};
-    if (mciSendStringW(command.c_str(), buffer.data(), static_cast<UINT>(buffer.size()), nullptr) != 0) {
-        return std::nullopt;
-    }
-    return std::wstring(buffer.data());
-}
-
-int to_int_or_zero(const std::optional<std::wstring>& value) {
-    if (!value || value->empty()) {
-        return 0;
-    }
-    return _wtoi(value->c_str());
-}
-
 std::wstring utf8_to_wide(std::string_view text) {
     if (text.empty()) {
         return L"";
@@ -1272,11 +1234,11 @@ const PlaylistTrack* current_track() {
 }
 
 int audio_position_ms() {
-    return g_audio.opened ? to_int_or_zero(mci_query(L"status ttplayer_audio position")) : 0;
+    return g_audio.opened ? g_audio_engine.position_ms() : 0;
 }
 
 int audio_length_ms() {
-    return g_audio.opened ? to_int_or_zero(mci_query(L"status ttplayer_audio length")) : 0;
+    return g_audio.opened ? g_audio_engine.length_ms() : 0;
 }
 
 
@@ -1380,7 +1342,7 @@ std::wstring format_length_time_ms(int ms) {
 
 void close_audio() {
     if (g_audio.opened) {
-        mci_send(L"close ttplayer_audio");
+        g_audio_engine.close();
         g_audio.opened = false;
         g_audio.playing = false;
     }
@@ -1399,15 +1361,12 @@ bool open_current_audio() {
         g_last_audio_error = L"找不到音频文件：\n" + track->path.wstring();
         return false;
     }
-    if (const auto open_error = mci_send_error(L"open " + mci_quote(track->path) + L" type mpegvideo alias ttplayer_audio")) {
-        g_last_audio_error = L"无法打开音频文件：\n" + track->path.wstring()
-            + L"\n\n" + *open_error
-            + L"\n\n当前版本使用 Windows MCI/WinMM 播放。MP3/WAV/WMA 最可靠；FLAC/APE/OGG/M4A 需要系统编解码器支持。";
+    std::wstring open_error;
+    if (!g_audio_engine.open(track->path, g_audio.volume, open_error)) {
+        g_last_audio_error = open_error + L"\n\n当前版本内置 miniaudio 播放后端，不依赖 Windows MCI。支持 MP3/WAV/FLAC。";
         return false;
     }
     g_audio.opened = true;
-    mci_send(L"set ttplayer_audio time format milliseconds");
-    mci_send(L"setaudio ttplayer_audio volume to " + std::to_wstring(g_audio.volume * 10));
     return true;
 }
 
@@ -1421,9 +1380,10 @@ void play_audio(HWND hwnd) {
         invalidate_playback_views(hwnd);
         return;
     }
-    if (const auto play_error = mci_send_error(L"play ttplayer_audio")) {
+    std::wstring play_error;
+    if (!g_audio_engine.play(play_error)) {
         g_audio.playing = false;
-        g_last_audio_error = L"无法开始播放：\n" + *play_error;
+        g_last_audio_error = play_error;
         report_audio_error(hwnd);
         invalidate_playback_views(hwnd);
         return;
@@ -1432,9 +1392,10 @@ void play_audio(HWND hwnd) {
     invalidate_playback_views(hwnd);
     save_app_config();
 }
+
 void pause_audio(HWND hwnd) {
     if (g_audio.opened) {
-        mci_send(L"pause ttplayer_audio");
+        g_audio_engine.pause();
     }
     g_audio.playing = false;
     invalidate_playback_views(hwnd);
@@ -1443,14 +1404,12 @@ void pause_audio(HWND hwnd) {
 
 void stop_audio(HWND hwnd) {
     if (g_audio.opened) {
-        mci_send(L"stop ttplayer_audio");
-        mci_send(L"seek ttplayer_audio to start");
+        g_audio_engine.stop();
     }
     g_audio.playing = false;
     invalidate_playback_views(hwnd);
     save_app_config();
 }
-
 void play_track_at(HWND hwnd, int index) {
     if (g_playlist.empty()) {
         return;
@@ -1866,7 +1825,7 @@ void advance_finished_track_for_mode(HWND hwnd) {
 void set_audio_volume(HWND hwnd, int volume) {
     g_audio.volume = std::clamp(volume, 0, 100);
     if (g_audio.opened) {
-        mci_send(L"setaudio ttplayer_audio volume to " + std::to_wstring(g_audio.volume * 10));
+        g_audio_engine.set_volume(g_audio.volume);
     }
     invalidate_playback_views(hwnd);
     save_app_config();
@@ -1878,14 +1837,10 @@ void seek_audio(HWND hwnd, int position_ms) {
         return;
     }
     const int target = std::clamp(position_ms, 0, std::max(0, audio_length_ms()));
-    mci_send(L"seek ttplayer_audio to " + std::to_wstring(target));
-    if (g_audio.playing) {
-        mci_send(L"play ttplayer_audio");
-    }
+    g_audio_engine.seek_ms(target);
     invalidate_playback_views(hwnd);
     save_app_config();
 }
-
 void handle_slider_click(HWND hwnd, const std::string& control, int x) {
     if (!g_skin_definition) {
         return;
@@ -4134,7 +4089,7 @@ void sort_playlist_by_filetime(HWND hwnd) {
 }
 
 void handle_playlist_menu_command(HWND hwnd, UINT command) {
-    constexpr const wchar_t* audio_filter = L"音频文件\0*.mp3;*.flac;*.wav;*.wma;*.ape;*.ogg;*.m4a\0所有文件\0*.*\0";
+    constexpr const wchar_t* audio_filter = L"音频文件\0*.mp3;*.flac;*.wav\0所有文件\0*.*\0";
     constexpr const wchar_t* list_filter = L"播放列表\0*.m3u;*.m3u8;*.txt\0所有文件\0*.*\0";
     switch (command) {
     case kPlaylistAddFile:
@@ -5340,7 +5295,7 @@ void load_playlist_from_saved_session(HWND hwnd, const PlaylistSessionRestore& s
     if (open_current_audio()) {
         const int resume_position = std::max(0, session.state.resume_position_ms);
         if (resume_position > 0) {
-            mci_send(L"seek ttplayer_audio to " + std::to_wstring(resume_position));
+            g_audio_engine.seek_ms(resume_position);
         }
         if (session.state.resume_playing) {
             play_audio(hwnd);

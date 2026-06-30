@@ -390,7 +390,7 @@ std::optional<PlaylistSessionRestore> parse_playlist_session(std::string_view xm
 
 bool is_supported_audio_file(const std::filesystem::path& path) {
     const auto ext = lower(path.extension().wstring());
-    return ext == L".mp3" || ext == L".flac" || ext == L".wav" || ext == L".wma" || ext == L".ape" || ext == L".ogg" || ext == L".m4a";
+    return ext == L".mp3" || ext == L".flac" || ext == L".wav";
 }
 
 std::wstring playlist_title_from_path(const std::filesystem::path& path) {

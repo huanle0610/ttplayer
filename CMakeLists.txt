@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.20)
 project(TTPlayerClassicCpp LANGUAGES CXX RC)
 
 add_library(ttplayer_classic_core
+    src/audio_engine.cpp
     src/desktop_lyric_model.cpp
     src/equalizer_model.cpp
     src/lyric_mode.cpp
@@ -17,9 +18,12 @@ target_compile_features(ttplayer_classic_core PUBLIC cxx_std_20)
 
 target_include_directories(ttplayer_classic_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/miniaudio
 )
 
 target_link_libraries(ttplayer_classic_core PUBLIC ntdll)
+
+set_source_files_properties(src/audio_engine.cpp PROPERTIES COMPILE_OPTIONS "/wd4244")
 
 target_compile_definitions(ttplayer_classic_core PUBLIC
     UNICODE
@@ -43,7 +47,6 @@ target_link_libraries(ttplayer_classic PRIVATE
     comctl32
     shell32
     msimg32
-    winmm
 )
 
 
@@ -74,9 +77,4 @@ else()
     target_compile_options(ttplayer_classic PRIVATE -Wall -Wextra -Wpedantic)
     target_compile_options(ttplayer_classic_tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-
-
-
-
-
 

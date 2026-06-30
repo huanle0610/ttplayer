@@ -5,6 +5,7 @@
 #include "skin_package.h"
 #include "skin_selection.h"
 #include "playlist_model.h"
+#include "audio_engine.h"
 #include "window_layout.h"
 
 #include <cstdlib>
@@ -307,6 +308,9 @@ void verify_playlist_library_tracks_active_song_per_list() {
     require(library.active_track_index() == 0, "expected second list to remember its selected song");
 }
 
+void verify_audio_backend_does_not_depend_on_mci() {
+    require(std::wstring(audio_backend_name()) == L"miniaudio", "expected packaged player to use miniaudio instead of Windows MCI");
+}
 void verify_playlist_session_xml_round_trips_lists_and_resume_state() {
     PlaylistLibrary library;
     library.replace_active({{L"C:/Music/one & two.mp3", L"one < two", 1234}, {L"C:/Music/three.mp3", L"three", 5678}}, L"100", 1);
@@ -395,6 +399,7 @@ void verify_playlist_directory_loading_filters_and_sorts_audio() {
     std::ofstream(dir / "02.Second Song-The Band.mp3").put('\0');
     std::ofstream(dir / "01.First Song.flac").put('\0');
     std::ofstream(dir / "01.First Song.lrc").put('\0');
+    std::ofstream(dir / "03.Unsupported Song.wma").put('\0');
 
     const auto tracks = load_playlist_from_directory(dir);
     require(tracks.size() == 3, "expected only audio files in playlist");
@@ -602,6 +607,7 @@ int main(int, char** argv) {
     verify_playlist_library_reorders_lists_without_losing_active_list();
     verify_playlist_list_drag_feedback_points_at_target_row();
     verify_playlist_library_tracks_active_song_per_list();
+    verify_audio_backend_does_not_depend_on_mci();
     verify_playlist_session_xml_round_trips_lists_and_resume_state();
     verify_playlist_layout_matches_tt07();
     verify_playlist_scrollbar_hit_testing_and_scroll();
