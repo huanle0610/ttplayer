@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="TTPlayer Classic" Manufacturer="TTPlayer Classic" Version="0.1.0.0" UpgradeCode="D1D9077C-08C8-4D63-92B7-45C7B0D275A8" Scope="perMachine">
+    <MediaTemplate EmbedCab="yes" />
+    <Icon Id="AppIcon.ico" SourceFile="$(var.ResourceDir)\ttplayer.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of TTPlayer Classic is already installed." />
+
+    <Feature Id="MainFeature" Title="TTPlayer Classic" Level="1">
+      <ComponentGroupRef Id="AppComponents" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TTPlayer Classic" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="TTPlayer Classic" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppComponents" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable">
+        <File Id="TTPlayerClassicExe" Source="$(var.BuildOutput)\ttplayer_classic.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Name="TTPlayer Classic" WorkingDirectory="INSTALLFOLDER" Icon="AppIcon.ico" Advertise="yes" />
+        </File>
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+      </Component>
+    </ComponentGroup>
+  </Package>
+</Wix>
